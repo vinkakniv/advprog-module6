@@ -14,6 +14,7 @@ This repository contains the code and reflections for Tutorial 6 in Advanced Pro
 - [Commit 1](#commit-1-reflection-notes)
 - [Commit 2](#commit-2-reflection-notes)
 - [Commit 3](#commit-3-reflection-notes)
+- [Commit 4](#commit-4-reflection-notes)
 
 #### Commit 1 Reflection notes
 
@@ -139,3 +140,24 @@ This repository contains the code and reflections for Tutorial 6 in Advanced Pro
 
     <img src="https://i.imgur.com/sFslsfd.png" alt="Commit 3 screen capture 1" width="400"/>
     <img src="https://i.imgur.com/vhkwpUx.png" alt="Commit 3 screen capture 2" width="400"/>
+
+#### Commit 4 Reflection notes
+
+- Dalam _commit_ ini, simulasi dilakukan untuk memperlihatkan dampak respons lambat pada server yang berjalan pada satu _thread_ saja.
+
+  Fungsi handle_connection dimodifikasi dengan menambahkan _endpoint_ baru yaitu `/sleep`. Ketika _endpoint_ ini diakses, server akan _delay_ selama 10 detik sebelum memberikan respons. Ini bertujuan untuk mensimulasikan permintaan yang lambat dan membutuhkan banyak _resource_.
+  ```rust
+      fn handle_connection(mut stream: TcpStream) {
+        // --snip--
+        let (status_line, filename) = match &request_line[..] {
+          "GET / HTTP/1.1" => ("HTTP/1.1 200 OK", "hello.html"),
+          "GET /sleep HTTP/1.1" => {
+            thread::sleep(Duration::from_secs(10));
+            ("HTTP/1.1 200 OK", "hello.html")
+          }
+          _ => ("HTTP/1.1 404 NOT FOUND", "404.html"),
+        };
+        // --snip--
+      }
+  ```
+  Ketika membuka dua web browser dan mengakses _endpoint_ `http://127.0.0.1:7878/sleep` pada salah satunya dan _endpoint_ `http://127.0.0.1:7878/` pada yang lainnya, akan terlihat bahwa server memerlukan waktu untuk memberikan respons. Hal ini dikarenakan server beroperasi pada satu _thread_ saja, sehingga hanya dapat memproses satu permintaan pada satu waktu. Ketika sedang menangani permintaan `/sleep`, server tidak dapat menangani permintaan lainnya.
