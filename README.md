@@ -177,3 +177,59 @@ This repository contains the code and reflections for Tutorial 6 in Advanced Pro
 
 - Setelah menerapkan ThreadPool, terjadi peningkatan kinerja yang signifikan pada server. Ketika _endpoint_ `http://127.0.0.1:7878/sleep` diakses pada satu web browser dan _endpoint_ `http://127.0.0.1:7878/` diakses pada web browser yang berbeda, _endpoint_ `http://127.0.0.1:7878/` tidak lagi menunggu hingga_ endpoint_ `http://127.0.0.1:7878/sleep` selesai. Respons diberikan secara langsung, karena ditangani oleh _thread_ yang berbeda.
   Perilaku ini menunjukkan efek _multithreading_. Dengan menangani setiap permintaan dalam _thread_ yang berbeda, kinerja dan responsifitas server dapat meningkat secara signifikan.
+
+#### Bonus
+
+- Mengganti fungsi `ThreadPool::new` dengan fungsi `ThreadPool::build` dalam struktur ThreadPool. Fungsi `build` ini menciptakan ThreadPool baru dengan jumlah pekerja yang ditentukan. Jika jumlah pekerja adalah 0 atau kurang, fungsi ini akan mengembalikan kesalahan bertipe `PoolCreationError`.
+
+    ```rust
+        #[derive(Debug)]
+        pub struct PoolCreationError;
+
+        impl ThreadPool {
+            pub fn build(size: usize) -> Result<ThreadPool, PoolCreationError> {
+                if size > 0 {
+                    let (sender, receiver) = mpsc::channel();
+                    let receiver = Arc::new(Mutex::new(receiver));
+                    let mut workers = Vec::with_capacity(size);
+
+                    for id in 0..size {
+                        workers.push(Worker::new(id, Arc::clone(&receiver)));
+                    }
+
+                    Ok(ThreadPool { workers, sender })
+                } else {
+                    Err(PoolCreationError)
+                }
+            }
+        }
+    ```
+
+    Perubahan ini memberikan lebih banyak kontrol kepada pengguna dalam menentukan jumlah worker dalam ThreadPool dan juga memberikan penanganan kesalahan yang lebih baik jika jumlah worker yang ditentukan tidak valid.
+
+    Selain itu, dalam fungsi main, menangani kesalahan pembuatan ThreadPool dengan cara berikut:
+
+     ```rust
+        fn main() {
+            let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
+            let pool = match ThreadPool::build(4) {
+                Ok(pool) => pool,
+                Err(_) => {
+                    eprintln!("Failed to create thread pool: size must be greater than 0");
+                    return;
+                }
+            };
+
+            for stream in listener.incoming() {
+                let stream = stream.unwrap();
+
+                pool.execute(|| {
+                    handle_connection(stream);
+                });
+            }
+        }
+    ```   
+    Jika pembuatan ThreadPool gagal, program akan mencetak pesan kesalahan dan keluar. Ini adalah peningkatan dari fungsi `new` sebelumnya, yang tidak memberikan penanganan kesalahan yang jelas jika pembuatan ThreadPool gagal.
+
+
+

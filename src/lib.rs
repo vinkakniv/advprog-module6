@@ -8,25 +8,28 @@ pub struct ThreadPool {
     sender: mpsc::Sender<Job>,
 }
 
+#[derive(Debug)]
+pub struct PoolCreationError;
+
 type Job = Box<dyn FnOnce() + Send + 'static>;
 
 
 impl ThreadPool {
 
-    pub fn new(size: usize) -> ThreadPool {
-        assert!(size > 0);
+    pub fn build(size: usize) -> Result<ThreadPool, PoolCreationError> {
+        if size > 0 {
+            let (sender, receiver) = mpsc::channel();
+            let receiver = Arc::new(Mutex::new(receiver));
+            let mut workers = Vec::with_capacity(size);
 
-        let (sender, receiver) = mpsc::channel();
+            for id in 0..size {
+                workers.push(Worker::new(id, Arc::clone(&receiver)));
+            }
 
-        let receiver = Arc::new(Mutex::new(receiver));
-
-        let mut workers = Vec::with_capacity(size);
-
-        for id in 0..size {
-            workers.push(Worker::new(id, Arc::clone(&receiver)));
+            Ok(ThreadPool { workers, sender })
+        } else {
+            Err(PoolCreationError)
         }
-
-        ThreadPool { workers, sender }
     }
 
     pub fn execute<F>(&self, f: F)
@@ -37,6 +40,8 @@ impl ThreadPool {
 
         self.sender.send(job).unwrap();
     }
+
+    
 
 }
 
