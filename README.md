@@ -15,6 +15,7 @@ This repository contains the code and reflections for Tutorial 6 in Advanced Pro
 - [Commit 2](#commit-2-reflection-notes)
 - [Commit 3](#commit-3-reflection-notes)
 - [Commit 4](#commit-4-reflection-notes)
+- [Commit 5](#commit-5-reflection-notes)
 
 #### Commit 1 Reflection notes
 
@@ -161,3 +162,18 @@ This repository contains the code and reflections for Tutorial 6 in Advanced Pro
       }
   ```
   Ketika membuka dua web browser dan mengakses _endpoint_ `http://127.0.0.1:7878/sleep` pada salah satunya dan _endpoint_ `http://127.0.0.1:7878/` pada yang lainnya, akan terlihat bahwa server memerlukan waktu untuk memberikan respons. Hal ini dikarenakan server beroperasi pada satu _thread_ saja, sehingga hanya dapat memproses satu permintaan pada satu waktu. Ketika sedang menangani permintaan `/sleep`, server tidak dapat menangani permintaan lainnya.
+
+#### Commit 5 Reflection notes
+
+- Dalam _commit_ ini, server telah ditingkatkan dengan membuatnya menjadi _multithreaded_. Ini memungkinkan server untuk menangani beberapa permintaan secara bersamaan, yang menghasilkan peningkatan kinerja yang signifikan saat ada banyak _task_.
+  Langkah yang diambil adalah mengikuti instruksi dalam Rust book untuk menerapkan ThreadPool. ThreadPool adalah kumpulan _thread_ yang telah diinisiasi yang siap menangani _tasks_ masuk. Ketika _task_ baru masuk, _task_ tersebut diberikan ke salah satu _thread_ dalam pool. Jika semua _thread_ sedang sibuk, _task_ tersebut menunggu hingga salah satu _thread_ tersedia.
+  Hal ini memungkinkan server untuk menangani beberapa permintaan secara bersamaan. Ketika ada permintaan yang lambat, tidak lagi menghambat permintaan lain. Sebaliknya, permintaan lambat ditangani oleh satu _thread_, sementara _thread_ lain tetap menangani permintaan lainnya.
+
+
+- Struktur ThreadPool menyimpan vektor dari instance `Worker` dan sebuah pengirim untuk _multi-producer_, _single-consumer (mpsc) channel_. Setiap Worker mewakili sebuah _thread_ dalam pool dan dibuat dengan ID unik serta penerima untuk _mpsc channel_. 
+  Fungsi `ThreadPool::new` menginisialisasi ThreadPool dengan jumlah worker yang ditentukan, sementara fungsi `ThreadPool::execute` memungkinkan _tasks_ dikirimkan ke worker untuk dieksekusi.
+  Fungsi `Worker::new` menetapkan setiap Worker untuk secara terus-menerus menunggu dan menerima _task_ dari _mpsc channel_, kemudian menjalankannya.
+
+
+- Setelah menerapkan ThreadPool, terjadi peningkatan kinerja yang signifikan pada server. Ketika _endpoint_ `http://127.0.0.1:7878/sleep` diakses pada satu web browser dan _endpoint_ `http://127.0.0.1:7878/` diakses pada web browser yang berbeda, _endpoint_ `http://127.0.0.1:7878/` tidak lagi menunggu hingga_ endpoint_ `http://127.0.0.1:7878/sleep` selesai. Respons diberikan secara langsung, karena ditangani oleh _thread_ yang berbeda.
+  Perilaku ini menunjukkan efek _multithreading_. Dengan menangani setiap permintaan dalam _thread_ yang berbeda, kinerja dan responsifitas server dapat meningkat secara signifikan.
